@@ -3,16 +3,36 @@
 
 import * as React from 'react';
 
-function Greeting({initialName = ''}) {
-  console.log('rendering');
+function useLocalStorageState(
+  key,
+  defaultValue = '',
+  {serialize = JSON.stringify, deserialize = JSON.parse} = {},
+) {
+  const [state, setState] = React.useState(() => {
+    const value = window.localStorage.getItem(key);
+    if (value) {
+      return deserialize(value);
+    } else {
+      return typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+    }
+  });
 
-  const [name, setName] = React.useState(
-    () => window.localStorage.getItem('name') || initialName,
-  );
+  const prevKeyRef = React.useRef(key);
 
   React.useEffect(() => {
-    window.localStorage.setItem('name', name);
-  });
+    const prevKey = prevKeyRef.current;
+    if (prevKey !== key) {
+      window.localStorage.removeItem(prevKey);
+    }
+    prevKeyRef.current = key;
+    window.localStorage.setItem(key, serialize(state));
+  }, [key, serialize, state]);
+
+  return [state, setState];
+}
+
+function Greeting({initialName = ''}) {
+  const [name, setName] = useLocalStorageState('name', initialName);
 
   function handleChange(event) {
     setName(event.target.value);
@@ -30,7 +50,13 @@ function Greeting({initialName = ''}) {
 }
 
 function App() {
-  return <Greeting initialName={'Fred'} />;
+  const [count, setCount] = React.useState(0);
+  return (
+    <>
+      <button onClick={() => setCount(p => p + 1)}>{count}</button>
+      <Greeting initialName={'Fred'} />
+    </>
+  );
 }
 
 export default App;
